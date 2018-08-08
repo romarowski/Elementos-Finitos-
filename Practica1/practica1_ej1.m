@@ -17,7 +17,7 @@ for N=3:maxelem % N es la cantidad de elementos
         elem(i,:) = [i i+1];
     end
     areaele = @(x) A_i * (L-x)/L + A_s * x/L;
-    k_g = zeros(N+1);
+    k_g = zeros(N+1); %N+1 es la cant de nodos cada nodo con un dof
     for i=1:N
         k_e = areaele(nodes(i+1)) * E / (L/N) * [1 -1 ; -1 1];
         k_g(elem(i,:), elem(i,:)) =  k_e + k_g(elem(i,:), elem(i,:));   
