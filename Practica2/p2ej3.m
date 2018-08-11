@@ -3,13 +3,13 @@ I = 700e-6*1000^4;
 E = 210e3;
 q = -10;
 P = -100e3;
-N = 3;
+N = 60;
 L1 = 12e3;
-L2 = 18e3;
+L2 = 6e3;
 dof = 2;
 dof_g = (N+2)*dof;
 nodes = 0:L1/N:L1; 
-nodes = [nodes L2];
+nodes = [nodes L1+L2];
 elem = zeros(N+1,2);
 for i=1:N+1
         elem(i,:) = [i i+1];
@@ -19,7 +19,7 @@ for i=1:N+1
     if i~=N+1
         k_e =   E*I / (L1/N)^3 * [12 6*(L1/N) -12  6*(L1/N); 6*(L1/N) 4*(L1/N)^2 -6*(L1/N) 2*(L1/N)^2;-12 -6*(L1/N) 12  -6*(L1/N);6*(L1/N) 2*(L1/N)^2 -6*(L1/N) 4*(L1/N)^2 ];
     else
-        k_e = E*2*I / (L1/N)^3 * [12 6*(L1/N) -12  6*(L1/N); 6*(L1/N) 4*(L1/N)^2 -6*(L1/N) 2*(L1/N)^2;-12 -6*(L1/N) 12  -6*(L1/N);6*(L1/N) 2*(L1/N)^2 -6*(L1/N) 4*(L1/N)^2 ];
+        k_e = E*2*I / (L2)^3 * [12 6*(L2) -12  6*(L2); 6*(L2) 4*(L2)^2 -6*(L2) 2*(L2)^2;-12 -6*(L2) 12  -6*(L2);6*(L2) 2*(L2)^2 -6*(L2) 4*(L2)^2 ];
     end
     ubicengral = 2*elem(i,1)-1:2*elem(i,2);
     k_g(ubicengral,ubicengral)  = k_e + k_g(ubicengral,ubicengral);
@@ -38,4 +38,8 @@ for i=3:2:dof_g-5
 end
 k_red = k_g(~bc,~bc);
 despl = k_red^(-1)*fzas(~bc);
-
+syms x;
+x=L2/2;
+aproxviga = [1 - 3*x^2/L2^2 + 2*x^3/L2^3 , x - 2*x^2/L2 + x^3/L2^2 , 3*x^2/L2^2 - 2*x^3/L2^3 , -x^2/L2 + x^3/L2^2];
+desplultimaviga = despl(end-3:end);
+vaprox = aproxviga*desplultimaviga;
