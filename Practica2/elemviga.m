@@ -1,13 +1,13 @@
 function [k_e] = elemviga( E,I,A,L,N,phi)
-%UNTITLED2 matriz en coordenadas genericas para elem viga doblado
+% matriz en coordenadas genericas para elem viga doblado
 syms X Y_1 Y_2 Y_3 Y_4;
 dof = 3;
 dof_g = (N+1)*dof;
-X = A*E/L;
-Y_1 = 12*E*I/L^3;
-Y_2 = 6*E*I/L^2;
-Y_3 = 4*E*I/L;
-Y_4 = 2*E*I/L;
+X = A*E/(L/N);
+Y_1 = 12*E*I/(L/N)^3;
+Y_2 = 6*E*I/(L/N)^2;
+Y_3 = 4*E*I/(L/N);
+Y_4 = 2*E*I/(L/N);
 k = [X 0 0 -X 0 0;
     0 Y_1 Y_2 0 -Y_1 Y_2;
     0 Y_2 Y_3 0 -Y_2 Y_4;
