@@ -55,21 +55,21 @@ L = sqrt(nodes(elem(j,1),1)^2 + nodes(elem(j,2),2)^2);
 if elem(j,1)<node_mitad_puente
     phi = asin(abs(nodes(elem(j,2),2)) / L);
 else
-   phi = pi+(pi-asin(nodes(elem(j,2),2) / L));    
+   phi = pi/2+(pi/2-asin(nodes(elem(j,2),2) / L)) ;   
 end
 k_g(ubic_global,ubic_global) = elembarra(1,Eacero,Abarra,L,phi) + k_g(ubic_global,ubic_global);
 end
 %sumo la viga de abajo
 ubic_global = [3*elem(end,1)-2:3*elem(end,1)  3*elem(end,2)-2:3*elem(end,2) ];
-k_g(ubic_global,ubic_global) = elemviga(Econcreto,Isosten,Asosten,Lsosten,1,deg2rad(90)) + k_g(ubic_global,ubic_global);
+k_g(ubic_global,ubic_global) = elemviga(Econcreto,Isosten,Asosten,Lsosten,1,deg2rad(-90)) + k_g(ubic_global,ubic_global);
 
 bc = zeros(dof_total,1);
 bc(1:2) = [1 1] ; bc(dof_puente-1)=1; bc(nodo_de_abajo*dof_beam-2:nodo_de_abajo*dof_beam) = [1 1 1];
 
 fzas = zeros(dof_total,1);
 L_e_puente = d_entre_cables_puente; fza_vert = q_distr*L_e_puente/2; momento = q_distr*L_e_puente^2/12;
-fza_elem_puente = [0 fza_vert -momento 0 fza_vert momento];
-for i=1:3:nodes_puente-5
+fza_elem_puente = [0 fza_vert momento 0 fza_vert -momento];
+for i=1:3:3*nodes_puente-5
     fzas(i:i+5) = fzas(i:i+5) + fza_elem_puente';
 end
 
@@ -97,23 +97,36 @@ for i=2:3:dof_beam*nodes_puente
 despl_en_y_tita_viga_puente([n n+1]) = despl([i i+1]);
 n=n+2;
 end
-N_analisis_por_viga =5; sigma_bending_puente = zeros(Nelem_puente,N_analisis_por_viga+1,length(-seccion_viga_alto:seccion_viga_alto));
+N_analisis_por_viga =5; sigma_bending_puente = zeros(Nelem_puente,N_analisis_por_viga+1);
 n=1;
 for i=1:Nelem_puente
     j=1;
     for x=0:L_e_puente/N_analisis_por_viga:L_e_puente
-        k=1;
-        for y=-seccion_viga_alto:seccion_viga_alto
-            B_flexion_puente = [-6/L_e_puente^2+12*x/L_e_puente^3; -4/L_e_puente+6*x/L_e_puente^2;
-                                6/L_e_puente^2-12*x/L^3; -2/L+6*x/L^2];
-            sigma_bending_puente(i,j,k) = y*Eacero * B_flexion_puente'*despl_en_y_tita_viga_puente(n:n+3);                
-            k=k+1;
-        end
+        y=seccion_viga_alto;
+        B_flexion_puente = [-6/L_e_puente^2+12*x/L_e_puente^3; -4/L_e_puente+6*x/L_e_puente^2;
+                            6/L_e_puente^2-12*x/L^3; -2/L+6*x/L^2];
+        sigma_bending_puente(i,j) = y*Eacero*B_flexion_puente'*despl_en_y_tita_viga_puente(n:n+3);                       
         j=j+1;
     end
     n=n+2;
 end
+sigma_total_puente = zeros(size(sigma_bending_puente));
+for i=1:Nelem_puente
+    sigma_total_puente(i,:) = abs(sigma_bending_puente(i,:)) + abs(sigma_axial_viga_puente(i));
+end
 
+%tensiones en los cables
+
+for j=Nelem_puente+Nelem_superpalo+1:Nelem_puente+Nelem_superpalo+2*Ncables
+    L = sqrt(nodes(elem(j,1),1)^2 + nodes(elem(j,2),2)^2);
+    if elem(j,1)<node_mitad_puente
+        beta = asin(abs(nodes(elem(j,2),2)) / L);
+    else
+        beta = pi/2+(pi/2-asin(nodes(elem(j,2),2) / L)) ;   
+    end
+    transf = [cos(beta) sin(beta) 0 0 ;0 0 cos(beta) sin(beta)];
+   
+end
  
     
 
