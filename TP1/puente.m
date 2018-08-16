@@ -5,7 +5,8 @@ dof_bar=2; dof_beam=3; Nelem_puente= 2*(Ncables+1); Nelem_superpalo = Ncables; N
 Nelem_total = Nelem_puente + Nelem_superpalo   + 2*Ncables + Nsosten;
 nodos_totales = Nelem_superpalo + Nsosten + Nelem_puente +1; dof_total = nodos_totales*dof_beam;
 nodes_puente = Nelem_puente +1; dof_puente = dof_beam*nodes_puente;
-nodo_de_abajo= nodes_puente +1;
+nodo_de_abajo= nodes_puente +1; 
+seccion_viga_alto=5; %medida desde el centro
 
 elem=zeros(Nelem_total,2);
 for i=1:Nelem_puente
@@ -81,10 +82,38 @@ despl = k_red^(-1)*fzas_red;
 despl = [[0 0] despl']; 
 despl = [despl(1:nodes_puente*dof_beam-2) 0 despl(dof_beam*nodes_puente-1:end)];
 despl = [despl(1:(nodes_puente+1)*dof_beam-3) [0 0 0] despl(dof_beam*(nodes_puente+1)-2:end)];
+
 %tensiones normales en las vigas del puente
-B_axial = [-1/L_e_puente 1/L_e_puente];
-despl_en_x = despl(1:3:end);
-sigma_axial_viga_puente =zeros(length(despl_en_x),1);
-for i=1:length(despl_en_x)-1
-sigma_axial_viga_puente(i) = B_axial * despl_en_x([i i+1])';
+B_axial_puente = [-1/L_e_puente 1/L_e_puente];
+despl_en_x = despl(1:3:dof_beam*nodes_puente);
+sigma_axial_viga_puente =zeros(Nelem_puente,1);
+for i=1:Nelem_puente
+sigma_axial_viga_puente(i) = Eacero*B_axial_puente * despl_en_x([i i+1])';
 end
+%tensiones por flexion en las vigas del puente
+despl_en_y_tita_viga_puente = zeros(nodes_puente*2,1);
+n=1;
+for i=2:3:dof_beam*nodes_puente
+despl_en_y_tita_viga_puente([n n+1]) = despl([i i+1]);
+n=n+2;
+end
+N_analisis_por_viga =5; sigma_bending_puente = zeros(Nelem_puente,N_analisis_por_viga+1,length(-seccion_viga_alto:seccion_viga_alto));
+n=1;
+for i=1:Nelem_puente
+    j=1;
+    for x=0:L_e_puente/N_analisis_por_viga:L_e_puente
+        k=1;
+        for y=-seccion_viga_alto:seccion_viga_alto
+            B_flexion_puente = [-6/L_e_puente^2+12*x/L_e_puente^3; -4/L_e_puente+6*x/L_e_puente^2;
+                                6/L_e_puente^2-12*x/L^3; -2/L+6*x/L^2];
+            sigma_bending_puente(i,j,k) = y*Eacero * B_flexion_puente'*despl_en_y_tita_viga_puente(n:n+3);                
+            k=k+1;
+        end
+        j=j+1;
+    end
+    n=n+2;
+end
+
+ 
+    
+
