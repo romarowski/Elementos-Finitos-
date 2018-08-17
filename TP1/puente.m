@@ -1,11 +1,15 @@
-Eacero=3e7; Econcreto= 64e5; Aviga = 62.2e2; Asosten = pi*40^2/4; Abarra = pi*5^2/4;
-Lsosten= 300; Lpuente = 2400; Isosten = pi*40^4/64; Iviga=10300e4;
+Diametro_cable = 5; Diametro_concreto = 20; espesor_viga_puente =3; profun_viga_puente = 20;
+Eacero=3e7; Econcreto= 4e7; 
+Aviga = espesor_viga_puente*profun_viga_puente; Asosten = pi*Diametro_concreto^2/4;
+Abarra = pi*Diametro_cable^2/4; Isosten = pi*Diametro_concreto^4/64; 
+Iviga=profun_viga_puente*espesor_viga_puente^3/12;
+Lsosten= 300; Lpuente = 2400; 
 q_distr = -125; Ncables = 2; % la cantidad de cables es simetrica
 dof_bar=2; dof_beam=3; Nelem_puente= 2*(Ncables+1); Nelem_superpalo = Ncables; Nsosten=1;
 Nelem_total = Nelem_puente + Nelem_superpalo   + 2*Ncables + Nsosten;
 nodos_totales = Nelem_superpalo + Nsosten + Nelem_puente +1; dof_total = nodos_totales*dof_beam;
 nodes_puente = Nelem_puente +1; dof_puente = dof_beam*nodes_puente;
-nodo_de_abajo= nodes_puente +1; 
+nodo_de_abajo= nodes_puente +1; nodes_superpalo=Nelem_superpalo+1;
 seccion_viga_alto=5; %medida desde el centro
 
 elem=zeros(Nelem_total,2);
@@ -97,26 +101,32 @@ for i=2:3:dof_beam*nodes_puente
 despl_en_y_tita_viga_puente([n n+1]) = despl([i i+1]);
 n=n+2;
 end
-N_analisis_por_viga =5; sigma_bending_puente = zeros(Nelem_puente,N_analisis_por_viga+1);
+N_analisis_por_viga =1000; sigma_bending_puente = zeros(Nelem_puente,N_analisis_por_viga+1);
 n=1;
 for i=1:Nelem_puente
     j=1;
     for x=0:L_e_puente/N_analisis_por_viga:L_e_puente
-        y=seccion_viga_alto;
+        y=espesor_viga_puente/2;
         B_flexion_puente = [-6/L_e_puente^2+12*x/L_e_puente^3; -4/L_e_puente+6*x/L_e_puente^2;
-                            6/L_e_puente^2-12*x/L^3; -2/L+6*x/L^2];
+                            6/L_e_puente^2-12*x/L_e_puente^3; -2/L_e_puente+6*x/L_e_puente^2];
         sigma_bending_puente(i,j) = y*Eacero*B_flexion_puente'*despl_en_y_tita_viga_puente(n:n+3);                       
         j=j+1;
     end
     n=n+2;
 end
-sigma_total_puente = zeros(size(sigma_bending_puente));
+sigma_bending_puente_max = zeros(Nelem_puente,1);
 for i=1:Nelem_puente
-    sigma_total_puente(i,:) = abs(sigma_bending_puente(i,:)) + abs(sigma_axial_viga_puente(i));
+sigma_bending_puente_max(i) = max(abs(sigma_bending_puente(i,:)));
+end
+sigma_total_puente_max = zeros(Nelem_puente,1);
+for i=1:Nelem_puente
+    sigma_total_puente_max(i,:) = abs(sigma_bending_puente_max(i,:)) + abs(sigma_axial_viga_puente(i));
 end
 
 %tensiones en los cables
-
+i=1; s=1;  n=1; m=1;
+sigma_axial_barras = zeros(2*Ncables,1); despl_local_barras = zeros(dof_bar*Ncables*2,1);
+despl_u_y_v_barras = zeros(dof_bar*2*Ncables*2,1); %el ultimo por 2 es por los nodos compartidos
 for j=Nelem_puente+Nelem_superpalo+1:Nelem_puente+Nelem_superpalo+2*Ncables
     L = sqrt(nodes(elem(j,1),1)^2 + nodes(elem(j,2),2)^2);
     if elem(j,1)<node_mitad_puente
@@ -125,8 +135,51 @@ for j=Nelem_puente+Nelem_superpalo+1:Nelem_puente+Nelem_superpalo+2*Ncables
         beta = pi/2+(pi/2-asin(nodes(elem(j,2),2) / L)) ;   
     end
     transf = [cos(beta) sin(beta) 0 0 ;0 0 cos(beta) sin(beta)];
+    ubic_global = [3*elem(j,1)-2:3*elem(j,1)-1  3*elem(j,2)-2:3*elem(j,2)-1 ];
+    despl_u_y_v_barras(n:n+3) = despl(ubic_global);
+    despl_local_barras(i:i+1) = transf* despl_u_y_v_barras(n:n+3);
+    B_axial_puente = [-1/L 1/L];
+    sigma_axial_barras(m) = Eacero*B_axial_puente *despl_local_barras(s:s+1);
+    n=n+4; i=i+2; s=s+2; m=m+1;
    
 end
- 
+%tensiones en el superpalo arriba del medio
+Trans_palo=zeros(dof_beam*2); phi=deg2rad(90);
+subT = [cos(phi) sin(phi) 0;
+        -sin(phi) cos(phi) 0;
+        0 0 1];
+Trans_palo(1:3,1:3) = subT;
+Trans_palo(4:end, 4:end) = subT;
+despl_vigas_conc_vert = zeros(Nelem_superpalo*2*dof_beam,1); n=1; %por 2 ya que cada elem tiene 2 nodos
+despl_vigas_conc_local=zeros(6,1);
+sigma_axial_viga_conc =zeros(Nelem_superpalo,1); i=1;  m=1;
+sigma_bending_concreto = zeros(Nelem_superpalo,N_analisis_por_viga+1);
+for j=Nelem_puente+1:Nelem_puente+Nelem_superpalo
+    ubic_global = [3*elem(j,1)-2:3*elem(j,1)  3*elem(j,2)-2:3*elem(j,2)];
+    L = abs(nodes(elem(j,1),2)-nodes(elem(j,2),2));
+    despl_vigas_conc_vert(n:n+5) = despl(ubic_global);
+    despl_vigas_conc_local = Trans_palo* despl_vigas_conc_vert(n:n+5);
+    B_axial_concreto = [-1/L 1/L];
+    sigma_axial_viga_conc(i) = Econcreto*B_axial_concreto * despl_vigas_conc_local([1 4]);
+    %calculo bending
+    y=Diametro_concreto/2;
+    for x=0:L/N_analisis_por_viga:L
+        B_flexion_concreto = [-6/L^2+12*x/L^3; -4/L+6*x/L^2;
+                            6/L^2-12*x/L^3; -2/L+6*x/L^2];
+        sigma_bending_concreto(i,m) = y*Econcreto*B_flexion_concreto'*despl_vigas_conc_local([2 3 5 6] );                       
+        m=m+1;
+    end
     
+    n=n+6; i=i+1; 
+end
+sigma_bending_concreto_max = zeros(Nelem_superpalo,1);
+for i=1:Nelem_superpalo
+sigma_bending_concreto_max(i) = max(abs(sigma_bending_concreto(i,:)));
+end
+sigma_total_concreto_max = zeros(Nelem_superpalo,1);
+for i=1:Nelem_superpalo
+    sigma_total_concreto_max(i,:) = abs(sigma_bending_concreto_max(i,:)) + sigma_axial_viga_conc(i);
+end
+
+
 
