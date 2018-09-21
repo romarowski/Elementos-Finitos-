@@ -9,7 +9,7 @@ for i=1:length(elem)
 ubic = [nodeDofs(elem(i,1),:),nodeDofs(elem(i,2),:)];
 L = norm( nodes(elem(i,2),:) - nodes(elem(i,1),:));
 k_loc = A*E/L * [1 -1;...
-                     -1 1];
+                -1 1];
                          
 dts = (nodes(elem(i,2),:)-nodes(elem(i,1),:))/L ;
 T=[dts 0 0 0; 0 0 0 dts];

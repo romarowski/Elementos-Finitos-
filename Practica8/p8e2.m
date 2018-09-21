@@ -1,48 +1,32 @@
-syms b a x y;
-b=0.5; a=1;
-%p= @(x,y) [1  x  y  x^2  x*y y^2]; LST
-p= @(x,y) [1 x y x*y];
+h=20; Tinf=50;
+
+syms x y func;
 func=[1 x y x*y];
-A=[p(0,0);p(a,0);p(a,b);p(0,b)];
+nodes=[-1 -1;1 -1;1 1;-1 1];
+A=sym('A',[4,4]);
+
+for i=1:4
+   A(i,:) = subs(func,[x y],nodes(i,:)); 
+end
 
 N=func/A;
 
+B(1,:)=diff(N,x);
+B(2,:)=diff(N,y);
 
-m=1;
-for j=1:4
-             B(1,j)=diff(N(m),x);
-             m=m+1;
-end
-       
-    
-m=1;
-for j=1:4
-             B(2,j)=diff(N(m),y);
-             m=m+1;
-end
-k_hat=[25 0;0 25];
+k_h=[25 0;0 25];
 
-K=int(int(B'*k_hat*B,x,-a,a),y,-b,b);
+k_loc = int(int(B'*k_h*B ,y,-1,1),x,-1,1) +  int(subs(h*(N'*N),x,1),y,-1,1);
 
-nodeDofs=[1 2 5 4;2 3 6 5;4 5 8 7;5 6 9 8];
 
-k_g=zeros(9);
-for i=1:4
-    k_g(nodeDofs(i,:),nodeDofs(i,:))= double(K) +k_g(nodeDofs(i,:),nodeDofs(i,:));
-    
-end
-c=[7 8 9]; x =[1 2 3 4 5 6];
+q=int(subs(h*50*(N'),x,1),y,-1,1);
 
-k_xc=k_g(x,c); k_xx=k_g(x,x); k_cc=k_g(c,c); k_cx=k_xc';
+c=[1 4]; x=[2 3];
+Tc=[100 100]';
+k_xx=k_loc(x,x); k_xc=k_loc(x,c); k_cc=k_loc(c,c); k_cx=k_loc(c,x);
 
-flujo_c = [0 0 0 0 1000 0];
-temp_c = [100 100 100]';
-temp_x= inv(k_xx)*(flujo_c-k_xc*temp_c);
-
-temp_tot= [temp_x; temp_c]
-
-for i=1:4
-T(i,:)=temp_tot(nodeDofs(i,:))
-end
-
+qc=q(x);
+T=zeros(4,1);
+T(x)=k_xx^-1*(qc-k_xc*Tc);
+T(c)=Tc;
 

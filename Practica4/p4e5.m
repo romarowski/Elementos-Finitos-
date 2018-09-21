@@ -58,10 +58,33 @@ despl=zeros(dofs,1);
 despl(~bc)=k_red^(-1)*fzas_red;
 
 %pos-proceso
-sigma_axial = E*[-1/L 1/L] *[despl(3) despl(6)]';
-sigma_bending = E*[-6/L^2+12*L/2/L^3, -2/L+6*L/2/L^2, 6/L^2-12*L/2/L^3, -2/L+6*L/2/L^2]...
-                 * [despl(4) despl(5) despl(7) despl(8)]';
-sigma_b= @(y) sigma_axial+sigma_bending*y; 
+sigma_total=zeros(length(elem),1);
+for i=1:length(elem)
+    if esbarra(i)==false
+        ubic = [nodeDofs(elem(i,1),:),nodeDofs(elem(i,2),:)];
+
+        L = norm( nodes(elem(i,2),:) - nodes(elem(i,1),:));
+
+        B_bend =[-6/L^2+12*L/2/L^3 , -2/L+6*L/2/L^2 , 6/L^2-12*L/2/L^3 ,...        
+                        -2/L+6* L/2 /L^2];
+
+        B_axial = [-1/L 1/L];
+
+        dts = (nodes(elem(i,2),:)-nodes(elem(i,1),:))/L ;
+
+        T=zeros(6); T(1,1:2)=dts; T(4,[4 5])=dts; 
+        T(2,1:2)= [-1*dts(2) dts(1)]; T(5,4:5)= [-1*dts(2) dts(1)];  
+        T(3,3) =1; T(6,6)=1;
+               
+        despl_loc = T*despl(ubic);      
+
+        sigma_axial = E * B_axial * despl_loc([1 4]);
+
+        sigma_bending = E * a/2 * B_bend * despl_loc([2 3 5 6]);
+
+        sigma_total(i)=  sigma_bending+sigma_axial; 
+    end
+end
 
 %fplot(sigma_b,[-20,20]);
 %view([90 -90]);
