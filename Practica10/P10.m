@@ -1,8 +1,9 @@
-clear;clc;
+
 
 elementos=load('ElementosT1.txt');
 nodos=load('NodosT1.txt');
 nodos=nodos*1000;
+eleType='Q4';
 
 %% Propiedades del Material
 E=30e3;
@@ -86,7 +87,7 @@ for iele=15:5:70
     r=r+I*wpg(ipg);
    
    end
-    R(elementos(iele,2:3),1)= R(elementos(iele,2:3),1) + r;
+   R(elementos(iele,2:3),1)= R(elementos(iele,2:3),1) + r;
 end
 
 %Cargas de volumen
@@ -94,7 +95,7 @@ end
 % Puntos de Gauss
 rsInt = 3*ones(1,2);
 [wpg, upg, npg] = gauss(rsInt);
-ro=2e-6; g=-10e3;
+ro=2e-6; g=-10;
 for iele=1:nel
    r=0;
    nodesEle=nodos(elementos(iele,:),:);
@@ -124,36 +125,77 @@ for iele=1:nel
 end
 
 %% Matriz de rigidez
-K=zeros(nDofTot);
-B=zeros(3,8);
-for iele=1:nel
-    Ke=zeros(nNodEle*nDofNod);
-    nodosEle=nodos(elementos(iele,:),:);
-    for ipg=1:npg
-       ksi=upg(ipg,1);
-       eta=upg(ipg,2);
-    
-       N=shapefuns([ksi eta],'Q4');
-    
-       dN=shapefunsder([ksi eta],'Q4');
-    
-       jac=dN*nodesEle;
-       
-       Djac = det(jac);
-       
-       dNxy=jac\dN;
-       
-       B(1,1:2:7)=dNxy(1,:);
-       B(2,2:2:8)=dNxy(2,:);
-       B(3,1:2:7)=dNxy(2,:); B(3,2:2:8)=dNxy(1,:);
-       
-       Ke=Ke + B'*C*B*Djac*wpg(ipg);
+% K=zeros(nDofTot);
+% B=zeros(3,8);
+% for iele=1:nel
+%     Ke=zeros(nNodEle*nDofNod);
+%     nodosEle=nodos(elementos(iele,:),:);
+%     for ipg=1:npg
+%        ksi=upg(ipg,1);
+%        eta=upg(ipg,2);
+%     
+%        N=shapefuns([ksi eta],'Q4');
+%     
+%        dN=shapefunsder([ksi eta],'Q4');
+%     
+%        jac=dN*nodesEle;
+%        
+%        Djac = det(jac);
+%        
+%        dNxy=jac\dN;
+%        
+%        B(1,1:2:7)=dNxy(1,:);
+%        B(2,2:2:8)=dNxy(2,:);
+%        B(3,1:2:7)=dNxy(2,:); B(3,2:2:8)=dNxy(1,:);
+%        
+%        Ke= Ke + B'*C*B*Djac*wpg(ipg);
+%     end
+%     eleDofs = node2dof(elementos(iele,:),nDofNod);
+%     K(eleDofs,eleDofs) = K(eleDofs,eleDofs) + Ke;
+% end
+
+%% 
+K = zeros(nDofTot);
+A = 0;
+jmin = 1E10;
+for iele = 1:nel
+    Ke = zeros(nDofNod*nNodEle);
+    nodesEle = nodos(elementos(iele,:),:);
+    for ipg = 1:npg
+        % Punto de Gauss
+        ksi = upg(ipg,1);
+        eta = upg(ipg,2);
+        
+        % Funciones de forma respecto de ksi, eta
+        N = shapefuns([ksi eta],eleType);
+        
+        % Derivadas de las funciones de forma respecto de ksi, eta
+        dN = shapefunsder([ksi eta],eleType);
+        % Derivadas de x,y, respecto de ksi, eta
+        jac = dN*nodesEle;
+        % Derivadas de las funciones de forma respecto de x,y.
+        dNxy = jac\dN;          % dNxy = inv(jac)*dN
+        
+        B = zeros(size(C,2),nDofNod*nNodEle);
+        B(1,1:2:nDofNod*nNodEle-1) = dNxy(1,:);
+        B(2,2:2:nDofNod*nNodEle) = dNxy(2,:);
+        B(3,1:2:nDofNod*nNodEle-1) = dNxy(2,:);
+        B(3,2:2:nDofNod*nNodEle) = dNxy(1,:);
+        
+        Djac = det(jac);
+        Ke = Ke + B'*C*B*wpg(ipg)*Djac;
+        A = A + wpg(ipg)*Djac;
+        if Djac < jmin
+            jmin = Djac;
+        end
     end
     eleDofs = node2dof(elementos(iele,:),nDofNod);
     K(eleDofs,eleDofs) = K(eleDofs,eleDofs) + Ke;
 end
 
 
+
+%% 
 
 % Reduccion Matriz
 isFixed = reshape(bc',[],1);
@@ -162,10 +204,13 @@ isFree = ~isFixed;
 Rr = reshape(R',[],1);
 
 % Solver
-Dr = K(isFree,isFree)\Rr(isFree);
+Dr = K(isFree,isFree)^(-1)*Rr(isFree);
 
 % Reconstrucci�n
 D = zeros(nDofTot,1);
 D(isFree) = D(isFree) + Dr;
 
 D=reshape(D,[2,nNod])';
+
+Ddefor= nodos+D*100;
+Meshplot(elementos,Ddefor,bc,'r')
